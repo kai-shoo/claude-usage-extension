@@ -1,9 +1,9 @@
 {
-  "name": "Claude Usage",
-  "description": "Display Claude AI API usage in the top panel",
-  "uuid": "claude-usage@anthropic.com",
+  "name": "Claude Code Usage",
+  "description": "Display Claude Code usage in the top panel",
+  "uuid": "claude-usage@haletran.com",
   "version": 1,
   "shell-version": ["48", "49"],
-  "url": "https://github.com/anthropics/claude-code",
+  "url": "https://github.com/Haletran/claude-usage-extension",
   "settings-schema": "org.gnome.shell.extensions.claude-usage"
 }
