@@ -2,7 +2,6 @@
   "name": "Claude Code Usage",
   "description": "Display Claude Code usage in the top panel",
   "uuid": "claude-usage@haletran.com",
-  "version": 1,
   "shell-version": ["48", "49"],
   "url": "https://github.com/Haletran/claude-usage-extension",
   "settings-schema": "org.gnome.shell.extensions.claude-usage"
