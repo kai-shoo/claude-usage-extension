@@ -3,7 +3,7 @@ import GObject from 'gi://GObject';
 import Gio from 'gi://Gio';
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
-import Soup from 'gi://Soup?version=3.0';
+import Soup from 'gi://Soup';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
@@ -15,12 +15,12 @@ const API_URL = 'https://api.anthropic.com/api/oauth/usage';
 
 const ClaudeUsageIndicator = GObject.registerClass(
 class ClaudeUsageIndicator extends PanelMenu.Button {
-    _init(extensionPath, settings, uuid) {
+    _init(extensionPath, settings, openPreferences) {
         super._init(0.0, 'Claude Usage Indicator');
 
         this._extensionPath = extensionPath;
         this._settings = settings;
-        this._uuid = uuid;
+        this._openPreferences = openPreferences;
         this._session = new Soup.Session();
 
         // Create box for panel button
@@ -202,18 +202,9 @@ class ClaudeUsageIndicator extends PanelMenu.Button {
         // Settings menu item
         const settingsItem = new PopupMenu.PopupMenuItem('Settings');
         settingsItem.connect('activate', () => {
-            this._openSettings();
+            this._openPreferences();
         });
         this.menu.addMenuItem(settingsItem);
-    }
-
-    _openSettings() {
-        try {
-            const extensionManager = Main.extensionManager;
-            extensionManager.openExtensionPrefs(this._uuid, '', {});
-        } catch (e) {
-            console.error('Claude Usage: Failed to open settings:', e.message);
-        }
     }
 
     _startTimer() {
@@ -240,40 +231,39 @@ class ClaudeUsageIndicator extends PanelMenu.Button {
         this._startTimer();
     }
 
-    _getAccessToken() {
-        try {
-            const credentialsPath = GLib.build_filenamev([
-                GLib.get_home_dir(),
-                '.claude',
-                '.credentials.json',
-            ]);
+    _refreshUsage() {
+        const credentialsPath = GLib.build_filenamev([
+            GLib.get_home_dir(),
+            '.claude',
+            '.credentials.json',
+        ]);
 
-            const file = Gio.File.new_for_path(credentialsPath);
-            const [success, contents] = file.load_contents(null);
+        const file = Gio.File.new_for_path(credentialsPath);
+        file.load_contents_async(null, (file, result) => {
+            try {
+                const [, contents] = file.load_contents_finish(result);
+                const decoder = new TextDecoder('utf-8');
+                const json = JSON.parse(decoder.decode(contents));
+                const token = json.claudeAiOauth?.accessToken;
 
-            if (!success) {
-                return null;
+                if (!token) {
+                    this._label.set_text('No token');
+                    this._fiveHourPercent.set_text('No credentials');
+                    this._sevenDayPercent.set_text('—');
+                    return;
+                }
+
+                this._fetchUsage(token);
+            } catch (e) {
+                console.error('Claude Usage: Failed to read credentials:', e.message);
+                this._label.set_text('No token');
+                this._fiveHourPercent.set_text('No credentials');
+                this._sevenDayPercent.set_text('—');
             }
-
-            const decoder = new TextDecoder('utf-8');
-            const json = JSON.parse(decoder.decode(contents));
-            return json.claudeAiOauth?.accessToken || null;
-        } catch (e) {
-            console.error('Claude Usage: Failed to read credentials:', e.message);
-            return null;
-        }
+        });
     }
 
-    _refreshUsage() {
-        const token = this._getAccessToken();
-
-        if (!token) {
-            this._label.set_text('No token');
-            this._fiveHourPercent.set_text('No credentials');
-            this._sevenDayPercent.set_text('—');
-            return;
-        }
-
+    _fetchUsage(token) {
         const message = Soup.Message.new('GET', API_URL);
         message.request_headers.append('Authorization', `Bearer ${token}`);
         message.request_headers.append('anthropic-beta', 'oauth-2025-04-20');
@@ -394,6 +384,10 @@ class ClaudeUsageIndicator extends PanelMenu.Button {
 
     destroy() {
         this._stopTimer();
+        if (this._session) {
+            this._session.abort();
+            this._session = null;
+        }
         if (this._settingsChangedId) {
             this._settings.disconnect(this._settingsChangedId);
             this._settingsChangedId = null;
@@ -405,7 +399,11 @@ class ClaudeUsageIndicator extends PanelMenu.Button {
 export default class ClaudeUsageExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
-        this._indicator = new ClaudeUsageIndicator(this.path, this._settings, this.uuid);
+        this._indicator = new ClaudeUsageIndicator(
+            this.path,
+            this._settings,
+            () => this.openPreferences()
+        );
         Main.panel.addToStatusArea(this.uuid, this._indicator);
     }
 
