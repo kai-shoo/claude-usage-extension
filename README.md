@@ -15,6 +15,13 @@ A GNOME Shell extension that displays your Claude Code API usage percentage in t
 
 ## Installation                                                                                                                                                                                                  
 
+### Automatic
+
+The extension is distributed on *extensions.gnome.org* here : [link](https://extensions.gnome.org/extension/9231/claude-code-usage/)
+
+
+### Manual
+
 ```bash
 git clone https://github.com/Haletran/claude-usage-extension
 cp -r claude-usage-extension ~/.local/share/gnome-shell/extensions/claude-usage@haletran.com 
