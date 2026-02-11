@@ -21,7 +21,7 @@ class ClaudeUsageIndicator extends PanelMenu.Button {
         this._extensionPath = extensionPath;
         this._settings = settings;
         this._openPreferences = openPreferences;
-        this._session = new Soup.Session();
+        this._session = this._createSession();
 
         // Create box for panel button
         this._box = new St.BoxLayout({
@@ -74,6 +74,8 @@ class ClaudeUsageIndicator extends PanelMenu.Button {
                 this._updateDisplayMode();
             } else if (key === 'show-icon') {
                 this._updateIconVisibility();
+            } else if (key === 'proxy-url') {
+                this._recreateSession();
             }
         });
 
@@ -106,6 +108,26 @@ class ClaudeUsageIndicator extends PanelMenu.Button {
         } else {
             this._icon.hide();
         }
+    }
+
+    _createSession() {
+        const session = new Soup.Session();
+        const proxyUrl = this._settings.get_string('proxy-url');
+
+        if (proxyUrl && proxyUrl.trim() !== '') {
+            const proxyResolver = Gio.SimpleProxyResolver.new(proxyUrl.trim(), null);
+            session.set_proxy_resolver(proxyResolver);
+        }
+
+        return session;
+    }
+
+    _recreateSession() {
+        if (this._session) {
+            this._session.abort();
+        }
+        this._session = this._createSession();
+        this._refreshUsage();
     }
 
     _createMenu() {
